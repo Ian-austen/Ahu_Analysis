@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { calculateState } from '@/lib/psychrometrics';
+import { calculateState } from '../lib/psychrometrics';
 import ReactECharts from 'echarts-for-react';
 
 export default function Home() {
@@ -44,4 +44,5 @@ export default function Home() {
       </div>
     </div>
   );
+
 }
