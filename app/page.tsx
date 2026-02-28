@@ -9,26 +9,32 @@ export default function Home() {
   const [result, setResult] = useState({ w: 0, h: 0 });
   const [mounted, setMounted] = useState(false);
 
-  // 确保仅在客户端运行，避免 Vercel SSR 报错
+  // 1. 初始化计算引擎，确保仅在客户端运行
   useEffect(() => {
     setMounted(true);
-    psychrolib.SetUnitSystem(psychrolib.SI);
+    try {
+      psychrolib.SetUnitSystem(psychrolib.SI);
+    } catch (e) {
+      console.error("初始化引擎失败:", e);
+    }
   }, []);
 
-  // 实时计算状态点
+  // 2. 核心物理计算逻辑
   useEffect(() => {
     if (!mounted) return;
     try {
-      const p = 101325;
+      const p = 101325; // 标准大气压
       const p_ws = psychrolib.GetSatVapPres(t);
       const p_w = (rh / 100) * p_ws;
-      const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000;
-      const h = psychrolib.GetMoistAirEnthalpy(t, w / 1000) / 1000;
+      const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000; // 单位转为 g/kg
+      const h = psychrolib.GetMoistAirEnthalpy(t, w / 1000) / 1000; // 单位转为 kJ/kg
       setResult({ w, h });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error("计算过程错误:", e);
+    }
   }, [t, rh, mounted]);
 
-  // 生成背景相对湿度曲线 (RH 10% - 100%)
+  // 3. 生成背景相对湿度曲线 (RH 10% - 100%)
   const rhCurves = useMemo(() => {
     if (!mounted) return [];
     const curves = [];
@@ -37,11 +43,11 @@ export default function Home() {
     
     for (let currentRh of rhs) {
       const data = [];
-      for (let temp = 0; temp <= 50; temp += 2) {
-        const p_ws = psychrolib.GetSatVapPres(temp);
+      for (let t_val = 0; t_val <= 50; t_val += 1) {
+        const p_ws = psychrolib.GetSatVapPres(t_val);
         const p_w = (currentRh / 100) * p_ws;
         const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000;
-        data.push([temp, w]);
+        data.push([t_val, w]);
       }
       curves.push({
         name: `RH ${currentRh}%`,
@@ -49,84 +55,111 @@ export default function Home() {
         data: data,
         showSymbol: false,
         smooth: true,
-        lineStyle: { width: 1, color: currentRh === 100 ? '#2563eb' : '#cbd5e1' },
-        label: { show: temp === 50, position: 'end', formatter: `${currentRh}%`, fontSize: 10 }
+        lineStyle: { 
+          width: currentRh === 100 ? 2 : 1, 
+          color: currentRh === 100 ? '#2563eb' : '#cbd5e1',
+          opacity: currentRh === 100 ? 1 : 0.6
+        },
+        // 修正后的标签逻辑，只在曲线末尾显示百分比
+        label: { 
+          show: true, 
+          position: 'end', 
+          formatter: (params: any) => params.dataIndex === data.length - 1 ? `${currentRh}%` : '',
+          fontSize: 10,
+          color: currentRh === 100 ? '#2563eb' : '#94a3b8'
+        }
       });
     }
     return curves;
   }, [mounted]);
 
+  // 4. ECharts 配置对象
   const option = {
-    title: { text: '专业空气焓湿图 (101.325 kPa)', left: 'center' },
-    grid: { right: '10%', bottom: '10%', left: '10%' },
-    tooltip: { trigger: 'axis', formatter: (params: any) => `温度: ${params[0].value[0]}℃<br/>含湿量: ${params[0].value[1].toFixed(2)}g/kg` },
-    xAxis: { name: '干球温度 (℃)', type: 'value', min: 0, max: 50, splitLine: { show: true } },
-    yAxis: { name: '含湿量 (g/kg)', type: 'value', position: 'right', min: 0, max: 30, splitLine: { show: true } },
+    title: { 
+      text: '空气焓湿图 (Psychrometric Chart)', 
+      left: 'center',
+      textStyle: { color: '#1e293b', fontSize: 16 }
+    },
+    grid: { 
+      top: '12%',
+      right: '10%', 
+      bottom: '10%', 
+      left: '8%',
+      containLabel: true 
+    },
+    tooltip: { 
+      trigger: 'item',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      formatter: (params: any) => {
+        if (params.seriesName === '当前状态点') {
+          return `<div style="padding:4px">
+                    <b>当前状态</b><br/>
+                    温度: ${params.value[0]} ℃<br/>
+                    含湿量: ${params.value[1].toFixed(2)} g/kg
+                  </div>`;
+        }
+        return params.seriesName;
+      }
+    },
+    xAxis: { 
+      name: '干球温度 (℃)', 
+      type: 'value', 
+      min: 0, 
+      max: 50, 
+      interval: 5,
+      splitLine: { show: true, lineStyle: { type: 'dashed', color: '#e2e8f0' } } 
+    },
+    yAxis: { 
+      name: '含湿量 (g/kg)', 
+      type: 'value', 
+      position: 'right', 
+      min: 0, 
+      max: 30, 
+      interval: 5,
+      splitLine: { show: true, lineStyle: { type: 'dashed', color: '#e2e8f0' } } 
+    },
     series: [
       ...rhCurves,
       {
         name: '当前状态点',
         type: 'scatter',
         data: [[t, result.w]],
-        symbolSize: 15,
-        itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '当前状态', position: 'top', backgroundColor: '#fff', padding: [2, 4], borderRadius: 4, shadowBlur: 5, shadowColor: '#ccc' },
-        zIndex: 10
+        symbolSize: 16,
+        itemStyle: { 
+          color: '#ef4444', 
+          borderColor: '#fff', 
+          borderWidth: 3,
+          shadowBlur: 10,
+          shadowColor: 'rgba(239, 68, 68, 0.5)' 
+        },
+        label: { 
+          show: true, 
+          formatter: '当前点', 
+          position: 'top', 
+          backgroundColor: '#ef4444', 
+          color: '#fff',
+          padding: [4, 8], 
+          borderRadius: 4,
+          fontSize: 12
+        },
+        zIndex: 100
       }
     ]
   };
 
-  if (!mounted) return <div className="p-10 text-center">正在加载计算引擎...</div>;
-
-  return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-10 font-sans">
-      <div className="max-w-6xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden border border-slate-200">
-        <div className="bg-gradient-to-r from-blue-700 to-blue-500 p-6 text-white flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">HVAC 智能焓湿计算终端</h1>
-            <p className="opacity-80 text-sm">基于 Gemini 2.0 & PsychroLib</p>
-          </div>
-          <div className="text-right">
-            <span className="text-xs bg-blue-800 px-2 py-1 rounded">LIVE MODE</span>
-          </div>
-        </div>
-        
-        <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="space-y-8">
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
-              <label className="block text-sm font-bold text-slate-700 mb-4 flex justify-between">
-                <span>干球温度 (Dry Bulb)</span>
-                <span className="text-blue-600 text-lg">{t} ℃</span>
-              </label>
-              <input type="range" min="0" max="50" step="0.5" value={t} onChange={e => setT(+e.target.value)} className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-            </div>
-
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm">
-              <label className="block text-sm font-bold text-slate-700 mb-4 flex justify-between">
-                <span>相对湿度 (RH)</span>
-                <span className="text-blue-600 text-lg">{rh} %</span>
-              </label>
-              <input type="range" min="0" max="100" value={rh} onChange={e => setRh(+e.target.value)} className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div className="p-4 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-200 text-center">
-                <p className="text-xs opacity-80 uppercase tracking-widest mb-1">焓值 (Enthalpy)</p>
-                <p className="text-3xl font-black">{result.h.toFixed(2)} <span className="text-sm font-normal">kJ/kg</span></p>
-              </div>
-              <div className="p-4 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-200 text-center">
-                <p className="text-xs opacity-80 uppercase tracking-widest mb-1">含湿量 (Humidity Ratio)</p>
-                <p className="text-3xl font-black">{result.w.toFixed(2)} <span className="text-sm font-normal">g/kg</span></p>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 h-[500px] bg-slate-50 rounded-2xl border border-slate-100 p-2">
-             <ReactECharts option={option} style={{height: '100%', width: '100%'}} />
-          </div>
-        </div>
-      </div>
-      <p className="text-center mt-6 text-slate-400 text-xs">标准大气压: 101.325 kPa | 物理引擎: PsychroLib SI</p>
+  // 5. 渲染逻辑
+  if (!mounted) return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="text-lg font-medium text-slate-500 animate-pulse">正在初始化 HVAC 计算引擎...</div>
     </div>
   );
-}
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 md:p-10 font-sans text-slate-900">
+      <div className="max-w-6xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden border border-slate-200">
+        
+        {/* 页眉 */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-6 text-white flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">HVAC 智能焓湿计算终端</h1>
+            <p className="opacity-70 text-sm mt-1">标准大气压: 101.325
