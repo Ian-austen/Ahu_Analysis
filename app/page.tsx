@@ -26,6 +26,7 @@ export default function Home() {
     } catch (e) { console.error(e); }
   }, [t, rh, mounted]);
 
+  // 背景等相对湿度线
   const rhCurves = useMemo(() => {
     if (!mounted) return [];
     const curves = [];
@@ -46,10 +47,10 @@ export default function Home() {
         showSymbol: false,
         smooth: true,
         lineStyle: { 
-          width: currentRh === 100 ? 2 : 1, 
-          color: currentRh === 100 ? '#2563eb' : '#cbd5e1',
-          opacity: currentRh === 100 ? 1 : 0.6
+          width: currentRh === 100 ? 3 : 1, 
+          color: currentRh === 100 ? '#3b82f6' : '#e2e8f0',
         },
+        emphasis: { lineStyle: { width: 4, color: '#60a5fa' } },
         label: { 
           show: true, 
           position: 'end', 
@@ -64,103 +65,139 @@ export default function Home() {
 
   const option = {
     backgroundColor: 'transparent',
-    title: { text: 'Psychrometric Chart', left: 'center', textStyle: { fontSize: 14, color: '#64748b' } },
-    grid: { top: '10%', right: '8%', bottom: '8%', left: '8%', containLabel: true },
     tooltip: { 
-      trigger: 'item',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      formatter: (p: any) => p.seriesName === '当前状态点' ? `T: ${p.value[0]}℃<br/>W: ${p.value[1].toFixed(2)}g/kg` : p.seriesName
+      trigger: 'axis',
+      axisPointer: { type: 'cross', label: { backgroundColor: '#1e293b' } },
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: '#e2e8f0',
+      borderWidth: 1,
+      padding: [12, 16],
+      textStyle: { color: '#334155', fontSize: 13 },
+      formatter: (params: any) => {
+        const point = params.find((p: any) => p.seriesName === '当前状态点');
+        const db = params[0].value[0];
+        const w = params[0].value[1].toFixed(2);
+        return `
+          <div style="box-shadow: 0 4px 12px rgba(0,0,0,0.1)">
+            <b style="color:#1e40af; font-size:14px">坐标读数</b><br/>
+            <hr style="margin: 8px 0; border:0; border-top:1px solid #eee" />
+            干球温度: <b style="float:right; margin-left:15px">${db} ℃</b><br/>
+            含湿量: <b style="float:right; margin-left:15px">${w} g/kg</b>
+          </div>
+        `;
+      }
     },
-    xAxis: { name: 'DB Temp (℃)', type: 'value', min: 0, max: 50, splitLine: { lineStyle: { type: 'dashed', color: '#e2e8f0' } } },
-    yAxis: { name: 'Humidity Ratio (g/kg)', type: 'value', position: 'right', min: 0, max: 30, splitLine: { lineStyle: { type: 'dashed', color: '#e2e8f0' } } },
+    grid: { top: '8%', right: '10%', bottom: '10%', left: '8%', containLabel: true },
+    xAxis: { 
+      name: 'Temp ℃', 
+      type: 'value', 
+      min: 0, max: 50,
+      axisLine: { lineStyle: { color: '#94a3b8' } },
+      splitLine: { lineStyle: { color: '#f1f5f9' } }
+    },
+    yAxis: { 
+      name: 'g/kg', 
+      type: 'value', 
+      position: 'right', 
+      min: 0, max: 30,
+      axisLine: { lineStyle: { color: '#94a3b8' } },
+      splitLine: { lineStyle: { color: '#f1f5f9' } }
+    },
     series: [
       ...rhCurves,
       {
         name: '当前状态点',
         type: 'scatter',
         data: [[t, result.w]],
-        symbolSize: 20,
-        itemStyle: { color: '#f43f5e', borderColor: '#fff', borderWidth: 4, shadowBlur: 15, shadowColor: 'rgba(244, 63, 94, 0.4)' },
-        label: { show: true, formatter: 'CURRENT', position: 'top', backgroundColor: '#f43f5e', color: '#fff', padding: [4, 8], borderRadius: 4, fontSize: 11 },
-        zIndex: 100
+        symbolSize: 22,
+        itemStyle: { 
+          color: '#f43f5e', 
+          borderColor: '#fff', 
+          borderWidth: 4, 
+          shadowBlur: 20, 
+          shadowColor: 'rgba(244, 63, 94, 0.6)' 
+        },
+        label: { 
+          show: true, 
+          formatter: 'TARGET', 
+          position: 'right', 
+          backgroundColor: '#1e293b', 
+          color: '#fff', 
+          padding: [4, 8], 
+          borderRadius: 4,
+          fontSize: 10,
+          fontWeight: 'bold'
+        },
+        zIndex: 1000
       }
     ]
   };
 
-  if (!mounted) return <div className="h-screen flex items-center justify-center text-slate-400">Loading Engineering Engine...</div>;
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 lg:p-8 font-sans text-slate-900">
-      <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="min-h-screen bg-[#f1f5f9] p-4 lg:p-10 font-sans text-slate-800">
+      <div className="max-w-[1500px] mx-auto overflow-hidden">
         
-        {/* 顶部导航栏 - Flex 布局优化 */}
-        <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* 玻璃感顶部 */}
+        <header className="mb-8 flex flex-col md:flex-row justify-between items-end gap-4 border-b border-slate-300 pb-6">
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">HVAC 智能焓湿计算终端</h1>
-            <p className="text-slate-400 text-sm font-medium">101.325 kPa | PsychroLib® SI Edition</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <span className="bg-blue-600 text-white p-2 rounded-lg shadow-lg shadow-blue-200 text-xl font-serif">P</span>
+              HVAC PSYCHROMETRIC HUB
+            </h1>
+            <p className="text-slate-500 font-mono text-xs mt-2 uppercase tracking-widest">Atmospheric Pressure: 101.325 kPa</p>
           </div>
-          <div className="flex items-center gap-3 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
-            <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span>
-            <span className="text-emerald-700 text-sm font-bold tracking-widest uppercase">System Operational</span>
+          <div className="flex gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse mt-2"></div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Engine Ready</span>
           </div>
         </header>
 
-        {/* 主交互区 - Grid 布局优化 */}
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <main className="flex flex-col lg:flex-row gap-8 items-stretch">
           
-          {/* 左侧：控制与数据展示 (占 4/12) */}
-          <section className="lg:col-span-4 space-y-6">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-10">
-              {/* 滑块 1 */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-slate-500 font-bold text-xs uppercase tracking-widest">干球温度 (Dry Bulb)</span>
-                  <span className="text-4xl font-light text-slate-800">{t}<small className="text-lg ml-1 font-medium">℃</small></span>
+          {/* 左侧控制区 (拟物化设计) */}
+          <aside className="lg:w-[400px] space-y-6 flex-shrink-0">
+            <div className="bg-white/70 backdrop-blur-md p-8 rounded-[2rem] border border-white shadow-2xl shadow-slate-200 space-y-10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5 font-black text-6xl">AIR</div>
+              
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <span className="bg-slate-100 px-3 py-1 rounded text-[10px] font-black text-slate-500 uppercase">Dry Bulb Temp</span>
+                  <span className="text-4xl font-mono font-bold text-blue-700">{t.toFixed(1)}<small className="text-sm italic ml-1">℃</small></span>
                 </div>
-                <input type="range" min="0" max="50" step="0.1" value={t} onChange={e => setT(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                <input type="range" min="0" max="50" step="0.1" value={t} onChange={e => setT(+e.target.value)} className="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 transition-all" />
               </div>
 
-              {/* 滑块 2 */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-slate-500 font-bold text-xs uppercase tracking-widest">相对湿度 (RH)</span>
-                  <span className="text-4xl font-light text-slate-800">{rh}<small className="text-lg ml-1 font-medium">%</small></span>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <span className="bg-slate-100 px-3 py-1 rounded text-[10px] font-black text-slate-500 uppercase">Relative Humidity</span>
+                  <span className="text-4xl font-mono font-bold text-blue-700">{rh}<small className="text-sm italic ml-1">%</small></span>
                 </div>
-                <input type="range" min="0" max="100" step="1" value={rh} onChange={e => setRh(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                <input type="range" min="0" max="100" step="1" value={rh} onChange={e => setRh(+e.target.value)} className="w-full h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 transition-all" />
               </div>
             </div>
 
-            {/* 数据卡片并排显示 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-600 p-6 rounded-3xl text-white shadow-lg shadow-blue-100">
-                <p className="text-[10px] opacity-70 uppercase font-bold tracking-tighter mb-1">Enthalpy (h)</p>
-                <p className="text-3xl font-black italic">{result.h.toFixed(2)}<span className="text-xs ml-1 not-italic opacity-80">kJ/kg</span></p>
+            {/* 数据结果卡片 (3D 悬浮感) */}
+            <div className="space-y-4">
+              <div className="group bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-[2rem] text-white shadow-xl shadow-blue-200 hover:-translate-y-1 transition-all">
+                <div className="flex justify-between items-start mb-2 text-blue-200 text-[10px] font-black uppercase tracking-widest">
+                  <span>Enthalpy (h)</span>
+                  <svg className="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <div className="text-4xl font-black">{result.h.toFixed(2)} <span className="text-sm font-normal opacity-60 ml-1">kJ/kg</span></div>
               </div>
-              <div className="bg-slate-800 p-6 rounded-3xl text-white shadow-lg shadow-slate-200">
-                <p className="text-[10px] opacity-70 uppercase font-bold tracking-tighter mb-1">Humid Ratio (w)</p>
-                <p className="text-3xl font-black italic">{result.w.toFixed(2)}<span className="text-xs ml-1 not-italic opacity-80">g/kg</span></p>
+
+              <div className="group bg-white p-6 rounded-[2rem] text-slate-800 border border-slate-100 shadow-xl shadow-slate-200 hover:-translate-y-1 transition-all">
+                <div className="flex justify-between items-start mb-2 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                  <span>Humid Ratio (w)</span>
+                  <svg className="h-4 w-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                </div>
+                <div className="text-4xl font-black text-slate-700">{result.w.toFixed(2)} <span className="text-sm font-normal opacity-40 ml-1">g/kg</span></div>
               </div>
             </div>
-          </section>
+          </aside>
 
-          {/* 右侧：大型焓湿图 (占 8/12) */}
-          <section className="lg:col-span-8 bg-white p-4 rounded-3xl shadow-sm border border-slate-200 min-h-[650px] flex items-center justify-center">
-             <ReactECharts 
-               option={option} 
-               style={{ height: '600px', width: '100%' }} // 强制 600px 高度
-               notMerge={true} 
-             />
-          </section>
-        </main>
-
-        <footer className="py-6 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] gap-4">
-          <p>© 2026 HVAC OP-ASSISTANT | ENGINEERING READY</p>
-          <div className="flex gap-6">
-            <span className="text-blue-500">Node: Gemini-2.0-Flash</span>
-            <span>Vercel Edge Network</span>
-          </div>
-        </footer>
-      </div>
-    </div>
-  );
-}
+          {/* 右侧：大型 3D 渲染感图表容器 */}
+          <section className="flex-grow bg-white p-6 rounded-[2.5rem] shadow-2xl shadow-slate-300 border border-white relative">
+             {/* 装饰
