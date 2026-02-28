@@ -18,10 +18,12 @@ export default function Home() {
     if (!mounted) return;
     try {
       const p = 101325;
-      const p_ws = psychrolib.GetSatVapPres(t);
-      const p_w = (rh / 100) * p_ws;
+      const safeT = Math.max(0, Math.min(50, t));
+      const safeRh = Math.max(0.1, Math.min(100, rh));
+      const p_ws = psychrolib.GetSatVapPres(safeT);
+      const p_w = (safeRh / 100) * p_ws;
       const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000;
-      const h = psychrolib.GetMoistAirEnthalpy(t, w / 1000) / 1000;
+      const h = psychrolib.GetMoistAirEnthalpy(safeT, w / 1000) / 1000;
       setResult({ w, h });
     } catch (e) { console.error(e); }
   }, [t, rh, mounted]);
@@ -29,27 +31,27 @@ export default function Home() {
   const rhCurves = useMemo(() => {
     if (!mounted) return [];
     const curves = [];
-    const rhs = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    const rhs = [10, 30, 50, 70, 90, 100];
     const p = 101325;
-    for (const currentRh of rhs) {
+    for (const curRh of rhs) {
       const data = [];
       for (let i = 0; i <= 50; i += 2) {
         const p_ws = psychrolib.GetSatVapPres(i);
-        const p_w = (currentRh / 100) * p_ws;
+        const p_w = (curRh / 100) * p_ws;
         const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000;
         data.push([i, w]);
       }
       curves.push({
-        name: `RH ${currentRh}%`,
+        name: `RH ${curRh}%`,
         type: 'line',
         data: data,
         showSymbol: false,
         smooth: true,
-        lineStyle: { width: currentRh === 100 ? 2 : 1, color: currentRh === 100 ? '#2563eb' : '#e2e8f0' },
+        lineStyle: { width: curRh === 100 ? 2 : 1, color: curRh === 100 ? '#2563eb' : '#cbd5e1' },
         label: {
           show: true,
           position: 'end',
-          formatter: (p: any) => p.dataIndex === p.data.length - 1 ? `${currentRh}%` : '',
+          formatter: (p: any) => p.dataIndex === p.data.length - 1 ? `${curRh}%` : '',
           fontSize: 10,
           color: '#94a3b8'
         }
@@ -59,14 +61,10 @@ export default function Home() {
   }, [mounted]);
 
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' },
-      formatter: (p: any) => `T: ${p[0].value[0]}℃<br/>W: ${p[0].value[1].toFixed(2)}g/kg`
-    },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
     grid: { top: '10%', right: '10%', bottom: '10%', left: '8%', containLabel: true },
-    xAxis: { type: 'value', min: 0, max: 50, name: '℃', splitLine: { lineStyle: { type: 'dashed' } } },
-    yAxis: { type: 'value', position: 'right', min: 0, max: 30, name: 'g/kg', splitLine: { lineStyle: { type: 'dashed' } } },
+    xAxis: { type: 'value', min: 0, max: 50, name: '℃' },
+    yAxis: { type: 'value', position: 'right', min: 0, max: 30, name: 'g/kg' },
     series: [
       ...rhCurves,
       {
@@ -84,58 +82,45 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 lg:p-8 font-sans">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        <header className="flex justify-between items-end border-b pb-4">
-          <div>
-            <h1 className="text-2xl font-black text-slate-800">HVAC PSYCHRO-HUB</h1>
-            <p className="text-[10px] font-mono text-slate-400 uppercase">Pressure: 101.325 kPa</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live</span>
+      <div className="max-w-[1400px] mx-auto">
+        <header className="flex justify-between items-center border-b pb-4 mb-6">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">HVAC HUB</h1>
+          <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-bold uppercase">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Live
           </div>
         </header>
 
-        <main className="flex flex-col lg:flex-row gap-8">
-          <aside className="lg:w-[350px] flex-shrink-0 space-y-4">
-            <div className="bg-white p-6 rounded-2xl shadow-xl border space-y-8">
+        <main className="flex flex-col lg:flex-row gap-6">
+          <aside className="lg:w-80 space-y-4 flex-shrink-0">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-6">
               <div>
-                <div className="flex justify-between text-xs font-bold mb-4">
-                  <span>TEMP (DB)</span>
-                  <span className="text-blue-600 text-lg">{t}℃</span>
-                </div>
-                <input type="range" min="0" max="50" step="0.5" value={t} onChange={(e) => setT(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                <label className="block text-xs font-bold text-slate-400 mb-2">TEMP: {t}℃</label>
+                <input type="range" min="0" max="50" step="0.5" value={t} onChange={e => setT(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
               </div>
               <div>
-                <div className="flex justify-between text-xs font-bold mb-4">
-                  <span>HUMIDITY (RH)</span>
-                  <span className="text-blue-600 text-lg">{rh}%</span>
-                </div>
-                <input type="range" min="0" max="100" step="1" value={rh} onChange={(e) => setRh(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                <label className="block text-xs font-bold text-slate-400 mb-2">HUMIDITY: {rh}%</label>
+                <input type="range" min="0" max="100" step="1" value={rh} onChange={e => setRh(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              <div className="bg-slate-900 p-6 rounded-2xl text-white shadow-lg">
-                <p className="text-[10px] font-bold opacity-50 mb-1">ENTHALPY (H)</p>
-                <p className="text-3xl font-black">{result.h.toFixed(2)} <span className="text-xs font-normal opacity-40">kJ/kg</span></p>
+              <div className="bg-slate-900 p-5 rounded-2xl text-white">
+                <p className="text-[10px] opacity-50 font-bold">ENTHALPY</p>
+                <p className="text-2xl font-black">{result.h.toFixed(2)} <span className="text-xs font-normal opacity-40">kJ/kg</span></p>
               </div>
-              <div className="bg-blue-600 p-6 rounded-2xl text-white shadow-lg">
-                <p className="text-[10px] font-bold opacity-50 mb-1">RATIO (W)</p>
-                <p className="text-3xl font-black">{result.w.toFixed(2)} <span className="text-xs font-normal opacity-40">g/kg</span></p>
+              <div className="bg-blue-600 p-5 rounded-2xl text-white">
+                <p className="text-[10px] opacity-50 font-bold">RATIO</p>
+                <p className="text-2xl font-black">{result.w.toFixed(2)} <span className="text-xs font-normal opacity-40">g/kg</span></p>
               </div>
             </div>
           </aside>
 
-          <section className="flex-grow bg-white p-4 rounded-3xl shadow-2xl border min-h-[600px] flex items-center justify-center relative">
+          <section className="flex-grow bg-white p-4 rounded-3xl shadow-sm border min-h-[600px] relative">
             <ReactECharts option={option} style={{ height: '650px', width: '100%' }} notMerge={true} />
-            <div className="absolute bottom-8 right-8 text-slate-50 font-black text-6xl select-none pointer-events-none uppercase">101.3</div>
+            <div className="absolute bottom-6 right-6 text-slate-100 font-black text-6xl pointer-events-none select-none">101.3</div>
           </section>
         </main>
-
-        <footer className="text-center text-[9px] font-mono text-slate-300 uppercase tracking-widest pt-8">
-          Neural Ops // SI Unit // Gemini-2.0-Flash
-        </footer>
       </div>
     </div>
   );
