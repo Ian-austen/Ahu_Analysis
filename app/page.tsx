@@ -18,109 +18,103 @@ export default function Home() {
     if (!mounted) return;
     try {
       const p = 101325;
-      const safeT = Math.max(0, Math.min(50, t));
-      const safeRh = Math.max(0.1, Math.min(100, rh));
-      const p_ws = psychrolib.GetSatVapPres(safeT);
-      const p_w = (safeRh / 100) * p_ws;
+      const p_ws = psychrolib.GetSatVapPres(t);
+      const p_w = (rh / 100) * p_ws;
       const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000;
-      const h = psychrolib.GetMoistAirEnthalpy(safeT, w / 1000) / 1000;
+      const h = psychrolib.GetMoistAirEnthalpy(t, w / 1000) / 1000;
       setResult({ w, h });
     } catch (e) { console.error(e); }
   }, [t, rh, mounted]);
 
   const rhCurves = useMemo(() => {
     if (!mounted) return [];
-    const curves = [];
     const rhs = [10, 30, 50, 70, 90, 100];
-    const p = 101325;
-    for (const curRh of rhs) {
+    return rhs.map(curRh => {
       const data = [];
       for (let i = 0; i <= 50; i += 2) {
         const p_ws = psychrolib.GetSatVapPres(i);
-        const p_w = (curRh / 100) * p_ws;
-        const w = psychrolib.GetHumRatioFromVapPres(p_w, p) * 1000;
+        const w = psychrolib.GetHumRatioFromVapPres((curRh / 100) * p_ws, 101325) * 1000;
         data.push([i, w]);
       }
-      curves.push({
-        name: `RH ${curRh}%`,
-        type: 'line',
-        data: data,
-        showSymbol: false,
-        smooth: true,
-        lineStyle: { width: curRh === 100 ? 2 : 1, color: curRh === 100 ? '#2563eb' : '#cbd5e1' },
-        label: {
-          show: true,
-          position: 'end',
-          formatter: (p: any) => p.dataIndex === p.data.length - 1 ? `${curRh}%` : '',
-          fontSize: 10,
-          color: '#94a3b8'
-        }
-      });
-    }
-    return curves;
+      return {
+        name: `${curRh}%`, type: 'line', data, showSymbol: false, smooth: true,
+        lineStyle: { width: curRh === 100 ? 2 : 1, color: curRh === 100 ? '#2563eb' : '#cbd5e1' }
+      };
+    });
   }, [mounted]);
 
   const option = {
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-    grid: { top: '10%', right: '10%', bottom: '10%', left: '8%', containLabel: true },
-    xAxis: { type: 'value', min: 0, max: 50, name: '℃' },
-    yAxis: { type: 'value', position: 'right', min: 0, max: 30, name: 'g/kg' },
-    series: [
-      ...rhCurves,
-      {
-        name: 'Target',
-        type: 'scatter',
-        data: [[t, result.w]],
-        symbolSize: 18,
-        itemStyle: { color: '#f43f5e', borderColor: '#fff', borderWidth: 3 },
-        zIndex: 100
-      }
-    ]
+    grid: { top: '8%', right: '12%', bottom: '10%', left: '8%' },
+    xAxis: { type: 'value', min: 0, max: 50, name: '℃', splitLine: { lineStyle: { type: 'dashed' } } },
+    yAxis: { type: 'value', position: 'right', min: 0, max: 30, name: 'g/kg', splitLine: { lineStyle: { type: 'dashed' } } },
+    series: [...rhCurves, {
+      name: '当前点', type: 'scatter', data: [[t, result.w]], symbolSize: 20,
+      itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 3, shadowBlur: 10 }
+    }]
   };
 
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 lg:p-8 font-sans">
-      <div className="max-w-[1400px] mx-auto">
-        <header className="flex justify-between items-center border-b pb-4 mb-6">
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight">HVAC HUB</h1>
-          <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-bold uppercase">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Live
+    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', padding: '40px' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        
+        {/* Header */}
+        <div style={{ borderBottom: '2px solid #e2e8f0', paddingBottom: '20px', marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1e293b', margin: 0 }}>HVAC 智能焓湿终端</h1>
+          <div style={{ color: '#10b981', fontWeight: 'bold', fontSize: '12px' }}>● 系统运行正常</div>
+        </div>
+
+        {/* Main Content: Flex 布局确保左右分开 */}
+        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+          
+          {/* Left Panel: 400px width */}
+          <div style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Control Box */}
+            <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '24px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', border: '1px solid #fff' }}>
+              <div style={{ marginBottom: '30px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>干球温度 (DB)</span>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{t} ℃</span>
+                </div>
+                <input type="range" min="0" max="50" step="0.5" value={t} onChange={e => setT(+e.target.value)} style={{ width: '100%', cursor: 'pointer' }} />
+              </div>
+              
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>相对湿度 (RH)</span>
+                  <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{rh} %</span>
+                </div>
+                <input type="range" min="0" max="100" step="1" value={rh} onChange={e => setRh(+e.target.value)} style={{ width: '100%', cursor: 'pointer' }} />
+              </div>
+            </div>
+
+            {/* Result Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
+              <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', padding: '25px', borderRadius: '24px', color: '#fff', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                <div style={{ fontSize: '10px', opacity: 0.6, marginBottom: '5px', letterSpacing: '1px' }}>空气焓值 ENTHALPY</div>
+                <div style={{ fontSize: '32px', fontWeight: 'black' }}>{result.h.toFixed(2)} <small style={{ fontSize: '14px', opacity: 0.5 }}>kJ/kg</small></div>
+              </div>
+              <div style={{ background: '#2563eb', padding: '25px', borderRadius: '24px', color: '#fff', boxShadow: '0 20px 25px -5px rgba(37,99,235,0.3)' }}>
+                <div style={{ fontSize: '10px', opacity: 0.8, marginBottom: '5px', letterSpacing: '1px' }}>含湿量 HUMID RATIO</div>
+                <div style={{ fontSize: '32px', fontWeight: 'black' }}>{result.w.toFixed(2)} <small style={{ fontSize: '14px', opacity: 0.5 }}>g/kg</small></div>
+              </div>
+            </div>
           </div>
-        </header>
 
-        <main className="flex flex-col lg:flex-row gap-6">
-          <aside className="lg:w-80 space-y-4 flex-shrink-0">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-2">TEMP: {t}℃</label>
-                <input type="range" min="0" max="50" step="0.5" value={t} onChange={e => setT(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-2">HUMIDITY: {rh}%</label>
-                <input type="range" min="0" max="100" step="1" value={rh} onChange={e => setRh(+e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-              </div>
-            </div>
+          {/* Right Panel: Chart Area */}
+          <div style={{ flex: '1', minWidth: '600px', backgroundColor: '#fff', padding: '20px', borderRadius: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.05)', border: '1px solid #fff', position: 'relative' }}>
+            <ReactECharts option={option} style={{ height: '700px', width: '100%' }} notMerge={true} />
+            <div style={{ position: 'absolute', bottom: '30px', right: '40px', fontSize: '60px', fontWeight: 900, color: '#f1f5f9', pointerEvents: 'none', zIndex: 0 }}>101.325 kPa</div>
+          </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              <div className="bg-slate-900 p-5 rounded-2xl text-white">
-                <p className="text-[10px] opacity-50 font-bold">ENTHALPY</p>
-                <p className="text-2xl font-black">{result.h.toFixed(2)} <span className="text-xs font-normal opacity-40">kJ/kg</span></p>
-              </div>
-              <div className="bg-blue-600 p-5 rounded-2xl text-white">
-                <p className="text-[10px] opacity-50 font-bold">RATIO</p>
-                <p className="text-2xl font-black">{result.w.toFixed(2)} <span className="text-xs font-normal opacity-40">g/kg</span></p>
-              </div>
-            </div>
-          </aside>
+        </div>
 
-          <section className="flex-grow bg-white p-4 rounded-3xl shadow-sm border min-h-[600px] relative">
-            <ReactECharts option={option} style={{ height: '650px', width: '100%' }} notMerge={true} />
-            <div className="absolute bottom-6 right-6 text-slate-100 font-black text-6xl pointer-events-none select-none">101.3</div>
-          </section>
-        </main>
+        <footer style={{ marginTop: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '10px', letterSpacing: '2px' }}>
+          NEURAL OPS SYSTEM // GEMINI 2.0 FLASH // SI ENGINE
+        </footer>
       </div>
     </div>
   );
