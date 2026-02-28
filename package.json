@@ -10,7 +10,7 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "psychrolib": "^2.0.0",
+    "psychrolib": "latest",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",
     "lucide-react": "latest",
@@ -26,4 +26,5 @@
     "@types/react": "latest",
     "@types/react-dom": "latest"
   }
+
 }
